@@ -9,11 +9,13 @@ import requests
 load_dotenv()
 
 # Detectar se está rodando no Streamlit Cloud
+# Verificar múltiplas formas de detecção
 IS_STREAMLIT_CLOUD = (
     os.getenv("STREAMLIT_SHARING") is not None or 
-    os.getenv("STREAMLIT_SERVER_PORT") is not None or
     os.getenv("STREAMLIT_SHARING_MODE") is not None or
-    "streamlit.app" in os.getenv("_", "")
+    "streamlit.app" in str(os.getenv("_", "")) or
+    "streamlit.io" in str(os.getenv("_", "")) or
+    os.path.exists("/mount/src")  # Streamlit Cloud monta em /mount/src
 )
 
 # Importações do LangChain
@@ -40,19 +42,6 @@ from langgraph.graph import StateGraph, START, END
 from pydantic import BaseModel, Field
 from typing import Literal
 
-# Configuração da API Key (para Streamlit Cloud)
-# Tentar obter de diferentes formas (Streamlit Cloud usa secrets.toml)
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-
-# Se não encontrou, tentar ler do secrets do Streamlit
-if not GOOGLE_API_KEY or GOOGLE_API_KEY == "sua_chave_api_aqui":
-    try:
-        # Streamlit Cloud usa secrets
-        if hasattr(st, 'secrets') and 'GOOGLE_API_KEY' in st.secrets:
-            GOOGLE_API_KEY = st.secrets['GOOGLE_API_KEY']
-    except:
-        pass
-
 # Interface Streamlit
 st.set_page_config(
     page_title="Consulta Vade Mecum",
@@ -63,10 +52,27 @@ st.set_page_config(
 st.title("📚 Consulta às Leis Orgânicas de Curitiba - PR")
 st.markdown("---")
 
+# Configuração da API Key (para Streamlit Cloud)
+# Tentar obter de diferentes formas
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+# Se não encontrou, tentar ler do secrets do Streamlit (Streamlit Cloud usa secrets.toml)
+if not GOOGLE_API_KEY or GOOGLE_API_KEY == "sua_chave_api_aqui":
+    try:
+        # Streamlit Cloud usa secrets
+        if hasattr(st, 'secrets'):
+            if 'GOOGLE_API_KEY' in st.secrets:
+                GOOGLE_API_KEY = st.secrets['GOOGLE_API_KEY']
+    except Exception as e:
+        pass
+
 # Verificar ambiente e configurar modelo
-# Priorizar Google Gemini se a chave estiver configurada (funciona na nuvem e localmente)
-HAS_VALID_GEMINI_KEY = GOOGLE_API_KEY and GOOGLE_API_KEY != "sua_chave_api_aqui" and len(GOOGLE_API_KEY) > 10
-USE_GEMINI = (HAS_VALID_GEMINI_KEY and GEMINI_AVAILABLE) or IS_STREAMLIT_CLOUD
+# Se estiver no Streamlit Cloud, SEMPRE usar Gemini (Ollama não funciona na nuvem)
+# Se tiver chave válida, usar Gemini
+HAS_VALID_GEMINI_KEY = GOOGLE_API_KEY and GOOGLE_API_KEY != "sua_chave_api_aqui" and len(str(GOOGLE_API_KEY).strip()) > 10
+
+# No Streamlit Cloud, sempre tentar usar Gemini (mesmo sem chave, mostrará erro pedindo chave)
+USE_GEMINI = IS_STREAMLIT_CLOUD or (HAS_VALID_GEMINI_KEY and GEMINI_AVAILABLE)
 
 if USE_GEMINI:
     # Usar Google Gemini (funciona localmente e na nuvem)
