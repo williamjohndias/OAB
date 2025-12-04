@@ -200,8 +200,7 @@ if ollama_models and 'models' in ollama_models and len(ollama_models['models']) 
     st.stop()
 
 # Preparar o modelo LLM
-# Usar allow_output_mutation=True para forçar atualização do cache
-@st.cache_resource(allow_output_mutation=True)
+@st.cache_resource
 def get_llm_models():
     """Carrega os modelos LLM com cache"""
     if USE_GEMINI:
