@@ -41,7 +41,17 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 # Configuração da API Key (para Streamlit Cloud)
+# Tentar obter de diferentes formas (Streamlit Cloud usa secrets.toml)
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+# Se não encontrou, tentar ler do secrets do Streamlit
+if not GOOGLE_API_KEY or GOOGLE_API_KEY == "sua_chave_api_aqui":
+    try:
+        # Streamlit Cloud usa secrets
+        if hasattr(st, 'secrets') and 'GOOGLE_API_KEY' in st.secrets:
+            GOOGLE_API_KEY = st.secrets['GOOGLE_API_KEY']
+    except:
+        pass
 
 # Interface Streamlit
 st.set_page_config(
@@ -54,8 +64,9 @@ st.title("📚 Consulta às Leis Orgânicas de Curitiba - PR")
 st.markdown("---")
 
 # Verificar ambiente e configurar modelo
-# Se tiver GOOGLE_API_KEY configurado, usar Gemini (funciona na nuvem)
-USE_GEMINI = (GOOGLE_API_KEY and GOOGLE_API_KEY != "sua_chave_api_aqui" and GEMINI_AVAILABLE) or IS_STREAMLIT_CLOUD
+# Priorizar Google Gemini se a chave estiver configurada (funciona na nuvem e localmente)
+HAS_VALID_GEMINI_KEY = GOOGLE_API_KEY and GOOGLE_API_KEY != "sua_chave_api_aqui" and len(GOOGLE_API_KEY) > 10
+USE_GEMINI = (HAS_VALID_GEMINI_KEY and GEMINI_AVAILABLE) or IS_STREAMLIT_CLOUD
 
 if USE_GEMINI:
     # Usar Google Gemini (funciona localmente e na nuvem)
