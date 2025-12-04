@@ -76,27 +76,49 @@ USE_GEMINI = IS_STREAMLIT_CLOUD or (HAS_VALID_GEMINI_KEY and GEMINI_AVAILABLE)
 
 if USE_GEMINI:
     # Usar Google Gemini (funciona localmente e na nuvem)
-    if not GOOGLE_API_KEY or GOOGLE_API_KEY == "sua_chave_api_aqui":
-        st.error("⚠️ **API Key não configurada!**")
-        st.markdown("""
-        Para usar no Streamlit Cloud, configure a variável de ambiente `GOOGLE_API_KEY`:
-        
-        1. No Streamlit Cloud, vá em **Settings** → **Secrets**
-        2. Adicione:
-        ```
-        GOOGLE_API_KEY = "sua_chave_aqui"
-        ```
-        3. Obtenha uma chave gratuita em: https://aistudio.google.com/app/apikey
-        4. Clique em **Save** e aguarde alguns segundos
-        5. Recarregue esta página
-        
-        **Limites Gratuitos:**
-        - 15 requisições/minuto
-        - 1.500 requisições/dia
-        - Totalmente gratuito!
-        
-        Consulte `COMO_OBTER_API_KEY_GRATUITA.md` para mais detalhes.
-        """)
+    if not GOOGLE_API_KEY or GOOGLE_API_KEY == "sua_chave_api_aqui" or len(str(GOOGLE_API_KEY).strip()) <= 10:
+        if IS_STREAMLIT_CLOUD:
+            st.error("⚠️ **API Key não configurada no Streamlit Cloud!**")
+            st.markdown("""
+            **Você está no Streamlit Cloud. Ollama não funciona aqui - você precisa usar Google Gemini.**
+            
+            Para configurar:
+            
+            1. No Streamlit Cloud, vá em **Settings** → **Secrets**
+            2. Adicione:
+            ```toml
+            GOOGLE_API_KEY = "sua_chave_aqui"
+            ```
+            3. Obtenha uma chave gratuita em: https://aistudio.google.com/app/apikey
+            4. Clique em **Save** e aguarde alguns segundos
+            5. Recarregue esta página
+            
+            **Limites Gratuitos:**
+            - 15 requisições/minuto
+            - 1.500 requisições/dia
+            - Totalmente gratuito!
+            
+            Consulte `COMO_OBTER_API_KEY_GRATUITA.md` para mais detalhes.
+            """)
+        else:
+            st.error("⚠️ **API Key não configurada!**")
+            st.markdown("""
+            Para usar Google Gemini, configure a variável de ambiente `GOOGLE_API_KEY`:
+            
+            1. Crie um arquivo `.env` na raiz do projeto
+            2. Adicione:
+            ```
+            GOOGLE_API_KEY=sua_chave_aqui
+            ```
+            3. Obtenha uma chave gratuita em: https://aistudio.google.com/app/apikey
+            
+            **Limites Gratuitos:**
+            - 15 requisições/minuto
+            - 1.500 requisições/dia
+            - Totalmente gratuito!
+            
+            Consulte `COMO_OBTER_API_KEY_GRATUITA.md` para mais detalhes.
+            """)
         st.stop()
     ollama_available = False
     ollama_models = None
