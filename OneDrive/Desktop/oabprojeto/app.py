@@ -287,7 +287,7 @@ TRIAGEM_PROMPT = (
 class TriagemOut(BaseModel):
     decisao: Literal["AUTO_RESOLVER", "PEDIR_INFO", "ABRIR_CHAMADO"]
     urgencia: Literal["BAIXA", "MEDIA", "ALTA"]
-  campos_faltantes: List[str] = Field(default_factory=list)
+    campos_faltantes: List[str] = Field(default_factory=list)
 
 # Configurar chain de triagem - Ollama não suporta with_structured_output
 # Vamos usar prompt estruturado e parsing manual
@@ -385,7 +385,7 @@ def load_vectorstore():
     """Carrega o PDF e cria o índice vetorial com cache"""
     with st.spinner("Carregando PDF e criando índice... Isso pode levar alguns minutos na primeira vez."):
         # Carregar PDFs
-docs = []
+        docs = []
 
         # Tentar múltiplos caminhos possíveis
         possible_paths = [
@@ -442,7 +442,7 @@ docs = []
         # Dividir em chunks
         st.info("Dividindo documentos em chunks...")
         splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-chunks = splitter.split_documents(docs)
+        chunks = splitter.split_documents(docs)
         st.success(f"✓ {len(chunks)} chunks criados")
         
         # Configurar embeddings
@@ -451,7 +451,7 @@ chunks = splitter.split_documents(docs)
             st.info("Configurando embeddings...")
             if not GEMINI_AVAILABLE:
                 raise ImportError("langchain-google-genai não está instalado")
-embeddings = GoogleGenerativeAIEmbeddings(
+                embeddings = GoogleGenerativeAIEmbeddings(
                 model="models/text-embedding-004",
                 google_api_key=GOOGLE_API_KEY
             )
@@ -543,7 +543,7 @@ document_chain = create_rag_chain(llm_triagem, prompt_rag)
 def perguntar_vade_mecum(pergunta: str) -> Dict:
     """Função principal para consultar o Vade Mecum"""
     try:
-  docs_relacionados = retriever.invoke(pergunta)
+        docs_relacionados = retriever.invoke(pergunta)
     except Exception as e:
         return {
             "answer": f"Erro ao buscar informações: {str(e)}",
@@ -556,8 +556,7 @@ def perguntar_vade_mecum(pergunta: str) -> Dict:
             "answer": "Não encontrei informações específicas nas Leis Orgânicas de Curitiba para sua pergunta. Por favor, tente reformular ou ser mais específico. Exemplos: 'Qual o artigo sobre zoneamento urbano?' ou 'O que diz a lei orgânica sobre transporte público?'",
             "citacoes": [],
             "contexto_encontrado": False
-        }
-    
+            }
     # Filtrar documentos muito curtos ou irrelevantes
     docs_filtrados = [doc for doc in docs_relacionados if doc.page_content and len(doc.page_content.strip()) > 50]
     
@@ -608,7 +607,7 @@ class AgentState(TypedDict, total=False):
   mensagem: str
   triagem: Dict
   resposta: Optional[str]
-    citacoes: List
+  citacoes: List[dict]
   rag_sucesso: bool
   acao_final: str
 
@@ -619,20 +618,19 @@ def node_triagem(state: AgentState) -> AgentState:
 def node_auto_resolver(state: AgentState) -> AgentState:
     resposta_RAG = perguntar_vade_mecum(state["mensagem"])
 
-  update: AgentState = {
+    update: AgentState = {
       "resposta": resposta_RAG["answer"],
         "citacoes": resposta_RAG.get("citacoes", []),
       "rag_sucesso": resposta_RAG["contexto_encontrado"]
   }
     if resposta_RAG["contexto_encontrado"]:
-    update["acao_final"] = "AUTO_RESOLVER"
+        update["acao_final"] = "AUTO_RESOLVER"
+    return update
 
-  return update
-
-  def node_pedir_info(state: AgentState) -> AgentState:
+def node_pedir_info(state: AgentState) -> AgentState:
     faltantes = state["triagem"].get("campos_faltantes", [])
     detalhe = ", ".join(faltantes) if faltantes else "tema e contexto específico"
-  return {
+    return {
         "resposta": f"Para avançar, preciso que você detalhe: {detalhe}",
       "citacoes": [],
       "acao_final": "PEDIR_INFO"
@@ -650,57 +648,22 @@ def node_abrir_chamado(state: AgentState) -> AgentState:
 KEYWORDS_ABRIR_TICKET = ["aprovação", "exceção", "liberação", "abrir ticket", "acesso especial"]
 
 def decidir_pos_triagem(state: AgentState) -> str:
-  decisao = state["triagem"]["decisao"]
+    decisao = state["triagem"]["decisao"]
 
-    if decisao == "AUTO_RESOLVER":
-        return "auto_resolver"
-    if decisao == "PEDIR_INFO":
-        return "pedir_info"
-    if decisao == "ABRIR_CHAMADO":
-        return "abrir_chamado"
-    
+    if decisao == "AUTO_RESOLVER": return "auto_resolver"
+    if decisao == "PEDIR_INFO": return "pedir_info"
+    if decisao == "ABRIR_CHAMADO": return "abrir_chamado"
     return "pedir_info"
 
-  def decidir_pos_auto_resolver(state: AgentState) -> str:
-  if state["rag_sucesso"]:
-    return "end"
+def decidir_pos_auto_resolver(state: AgentState) -> str:
+    if state["rag_sucesso"]:
+        return "end"
+    return "pedir_info"
 
-  state_da_pergunta = (state["mensagem"] or "").lower()
-  if any(k in state_da_pergunta for k in KEYWORDS_ABRIR_TICKET):
-    return "abrir_chamado"
+    state_da_pergunta = (state["mensagem"] or "").lower()
+    if any(k in state_da_pergunta for k in KEYWORDS_ABRIR_TICKET): return "abrir_chamado" 
+    else: return "pedir_info"
 
-  return "pedir_info"
-
-# Criar workflow
-@st.cache_resource
-def get_workflow():
-    """Cria o workflow com cache"""
-workflow = StateGraph(AgentState)
-
-workflow.add_node("triagem", node_triagem)
-workflow.add_node("auto_resolver", node_auto_resolver)
-workflow.add_node("pedir_info", node_pedir_info)
-workflow.add_node("abrir_chamado", node_abrir_chamado)
-
-workflow.add_edge(START, "triagem")
-    workflow.add_conditional_edges("triagem", decidir_pos_triagem, {
-    "auto_resolver": "auto_resolver",
-    "pedir_info": "pedir_info",
-    "abrir_chamado": "abrir_chamado"
-    })
-
-workflow.add_conditional_edges("auto_resolver", decidir_pos_auto_resolver, {
-    "pedir_info": "pedir_info",
-    "abrir_chamado": "abrir_chamado",
-    "end": END
-    })
-    
-workflow.add_edge("pedir_info", END)
-workflow.add_edge("abrir_chamado", END)
-
-    return workflow.compile()
-
-grafo = get_workflow()
 
 # Input do usuário
 pergunta = st.text_input(
