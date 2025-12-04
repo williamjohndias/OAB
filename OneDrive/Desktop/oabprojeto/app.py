@@ -451,7 +451,7 @@ def load_vectorstore():
             st.info("Configurando embeddings...")
             if not GEMINI_AVAILABLE:
                 raise ImportError("langchain-google-genai não está instalado")
-                embeddings = GoogleGenerativeAIEmbeddings(
+            embeddings = GoogleGenerativeAIEmbeddings(
                 model="models/text-embedding-004",
                 google_api_key=GOOGLE_API_KEY
             )
