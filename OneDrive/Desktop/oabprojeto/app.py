@@ -200,16 +200,22 @@ if ollama_models and 'models' in ollama_models and len(ollama_models['models']) 
     st.stop()
 
 # Preparar o modelo LLM
+# Usar versão no cache para forçar atualização
 @st.cache_resource
-def get_llm_models():
-    """Carrega os modelos LLM com cache"""
+def get_llm_models(_cache_version="v3"):
+    """Carrega os modelos LLM com cache
+    
+    Args:
+        _cache_version: Versão do cache para forçar atualização
+    """
     if USE_GEMINI:
         # Usar Google Gemini
         if not GEMINI_AVAILABLE:
             raise ImportError("langchain-google-genai não está instalado. Adicione ao requirements.txt")
         
-        # Usar gemini-2.5-flash conforme solicitado pelo usuário
-        model_name = "gemini-2.5-flash"
+        # Usar gemini-pro que é garantido funcionar com API v1beta
+        # Modelos como gemini-2.5-flash podem não estar disponíveis
+        model_name = "gemini-pro"
         
         # Criar instâncias do modelo
         llm = ChatGoogleGenerativeAI(
@@ -281,7 +287,7 @@ TRIAGEM_PROMPT = (
 class TriagemOut(BaseModel):
     decisao: Literal["AUTO_RESOLVER", "PEDIR_INFO", "ABRIR_CHAMADO"]
     urgencia: Literal["BAIXA", "MEDIA", "ALTA"]
-    campos_faltantes: List[str] = Field(default_factory=list)
+  campos_faltantes: List[str] = Field(default_factory=list)
 
 # Configurar chain de triagem - Ollama não suporta with_structured_output
 # Vamos usar prompt estruturado e parsing manual
@@ -379,8 +385,8 @@ def load_vectorstore():
     """Carrega o PDF e cria o índice vetorial com cache"""
     with st.spinner("Carregando PDF e criando índice... Isso pode levar alguns minutos na primeira vez."):
         # Carregar PDFs
-        docs = []
-        
+docs = []
+
         # Tentar múltiplos caminhos possíveis
         possible_paths = [
             Path("."),  # Diretório atual
@@ -436,7 +442,7 @@ def load_vectorstore():
         # Dividir em chunks
         st.info("Dividindo documentos em chunks...")
         splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-        chunks = splitter.split_documents(docs)
+chunks = splitter.split_documents(docs)
         st.success(f"✓ {len(chunks)} chunks criados")
         
         # Configurar embeddings
@@ -445,7 +451,7 @@ def load_vectorstore():
             st.info("Configurando embeddings...")
             if not GEMINI_AVAILABLE:
                 raise ImportError("langchain-google-genai não está instalado")
-            embeddings = GoogleGenerativeAIEmbeddings(
+embeddings = GoogleGenerativeAIEmbeddings(
                 model="models/text-embedding-004",
                 google_api_key=GOOGLE_API_KEY
             )
@@ -537,7 +543,7 @@ document_chain = create_rag_chain(llm_triagem, prompt_rag)
 def perguntar_vade_mecum(pergunta: str) -> Dict:
     """Função principal para consultar o Vade Mecum"""
     try:
-        docs_relacionados = retriever.invoke(pergunta)
+  docs_relacionados = retriever.invoke(pergunta)
     except Exception as e:
         return {
             "answer": f"Erro ao buscar informações: {str(e)}",
@@ -599,53 +605,53 @@ def perguntar_vade_mecum(pergunta: str) -> Dict:
 
 # Definir estado do agente
 class AgentState(TypedDict, total=False):
-    mensagem: str
-    triagem: Dict
-    resposta: Optional[str]
+  mensagem: str
+  triagem: Dict
+  resposta: Optional[str]
     citacoes: List
-    rag_sucesso: bool
-    acao_final: str
+  rag_sucesso: bool
+  acao_final: str
 
 # Nós do grafo
 def node_triagem(state: AgentState) -> AgentState:
-    return {"triagem": triagem(state["mensagem"])}
+  return {"triagem": triagem(state["mensagem"])}
 
 def node_auto_resolver(state: AgentState) -> AgentState:
     resposta_RAG = perguntar_vade_mecum(state["mensagem"])
-    
-    update: AgentState = {
-        "resposta": resposta_RAG["answer"],
-        "citacoes": resposta_RAG.get("citacoes", []),
-        "rag_sucesso": resposta_RAG["contexto_encontrado"]
-    }
-    if resposta_RAG["contexto_encontrado"]:
-        update["acao_final"] = "AUTO_RESOLVER"
-    
-    return update
 
-def node_pedir_info(state: AgentState) -> AgentState:
+  update: AgentState = {
+      "resposta": resposta_RAG["answer"],
+        "citacoes": resposta_RAG.get("citacoes", []),
+      "rag_sucesso": resposta_RAG["contexto_encontrado"]
+  }
+    if resposta_RAG["contexto_encontrado"]:
+    update["acao_final"] = "AUTO_RESOLVER"
+
+  return update
+
+  def node_pedir_info(state: AgentState) -> AgentState:
     faltantes = state["triagem"].get("campos_faltantes", [])
     detalhe = ", ".join(faltantes) if faltantes else "tema e contexto específico"
-    return {
+  return {
         "resposta": f"Para avançar, preciso que você detalhe: {detalhe}",
-        "citacoes": [],
-        "acao_final": "PEDIR_INFO"
-    }
+      "citacoes": [],
+      "acao_final": "PEDIR_INFO"
+  }
 
 def node_abrir_chamado(state: AgentState) -> AgentState:
     triagem_data = state["triagem"]
     return {
         "resposta": f"Abrindo chamado com urgência {triagem_data['urgencia']}. Descrição: {state['mensagem'][:140]}",
-        "citacoes": [],
-        "acao_final": "ABRIR_CHAMADO"
-    }
+      "citacoes": [],
+      "acao_final": "ABRIR_CHAMADO"
+  }
 
 # Funções de decisão
 KEYWORDS_ABRIR_TICKET = ["aprovação", "exceção", "liberação", "abrir ticket", "acesso especial"]
 
 def decidir_pos_triagem(state: AgentState) -> str:
-    decisao = state["triagem"]["decisao"]
-    
+  decisao = state["triagem"]["decisao"]
+
     if decisao == "AUTO_RESOLVER":
         return "auto_resolver"
     if decisao == "PEDIR_INFO":
@@ -655,43 +661,43 @@ def decidir_pos_triagem(state: AgentState) -> str:
     
     return "pedir_info"
 
-def decidir_pos_auto_resolver(state: AgentState) -> str:
-    if state["rag_sucesso"]:
-        return "end"
-    
-    state_da_pergunta = (state["mensagem"] or "").lower()
-    if any(k in state_da_pergunta for k in KEYWORDS_ABRIR_TICKET):
-        return "abrir_chamado"
-    
-    return "pedir_info"
+  def decidir_pos_auto_resolver(state: AgentState) -> str:
+  if state["rag_sucesso"]:
+    return "end"
+
+  state_da_pergunta = (state["mensagem"] or "").lower()
+  if any(k in state_da_pergunta for k in KEYWORDS_ABRIR_TICKET):
+    return "abrir_chamado"
+
+  return "pedir_info"
 
 # Criar workflow
 @st.cache_resource
 def get_workflow():
     """Cria o workflow com cache"""
-    workflow = StateGraph(AgentState)
-    
-    workflow.add_node("triagem", node_triagem)
-    workflow.add_node("auto_resolver", node_auto_resolver)
-    workflow.add_node("pedir_info", node_pedir_info)
-    workflow.add_node("abrir_chamado", node_abrir_chamado)
-    
-    workflow.add_edge(START, "triagem")
+workflow = StateGraph(AgentState)
+
+workflow.add_node("triagem", node_triagem)
+workflow.add_node("auto_resolver", node_auto_resolver)
+workflow.add_node("pedir_info", node_pedir_info)
+workflow.add_node("abrir_chamado", node_abrir_chamado)
+
+workflow.add_edge(START, "triagem")
     workflow.add_conditional_edges("triagem", decidir_pos_triagem, {
-        "auto_resolver": "auto_resolver",
-        "pedir_info": "pedir_info",
-        "abrir_chamado": "abrir_chamado"
+    "auto_resolver": "auto_resolver",
+    "pedir_info": "pedir_info",
+    "abrir_chamado": "abrir_chamado"
+    })
+
+workflow.add_conditional_edges("auto_resolver", decidir_pos_auto_resolver, {
+    "pedir_info": "pedir_info",
+    "abrir_chamado": "abrir_chamado",
+    "end": END
     })
     
-    workflow.add_conditional_edges("auto_resolver", decidir_pos_auto_resolver, {
-        "pedir_info": "pedir_info",
-        "abrir_chamado": "abrir_chamado",
-        "end": END
-    })
-    
-    workflow.add_edge("pedir_info", END)
-    workflow.add_edge("abrir_chamado", END)
-    
+workflow.add_edge("pedir_info", END)
+workflow.add_edge("abrir_chamado", END)
+
     return workflow.compile()
 
 grafo = get_workflow()
