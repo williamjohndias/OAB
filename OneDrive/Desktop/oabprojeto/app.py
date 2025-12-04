@@ -287,7 +287,7 @@ TRIAGEM_PROMPT = (
 class TriagemOut(BaseModel):
     decisao: Literal["AUTO_RESOLVER", "PEDIR_INFO", "ABRIR_CHAMADO"]
     urgencia: Literal["BAIXA", "MEDIA", "ALTA"]
-  campos_faltantes: List[str] = Field(default_factory=list)
+    campos_faltantes: List[str] = Field(default_factory=list)
 
 # Configurar chain de triagem - Ollama não suporta with_structured_output
 # Vamos usar prompt estruturado e parsing manual
