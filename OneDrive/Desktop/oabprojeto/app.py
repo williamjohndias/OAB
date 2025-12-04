@@ -1,4 +1,5 @@
 import os
+import time
 from pathlib import Path
 from typing import Dict, List, Optional, TypedDict
 from dotenv import load_dotenv
@@ -201,8 +202,12 @@ if ollama_models and 'models' in ollama_models and len(ollama_models['models']) 
 
 # Preparar o modelo LLM
 # Usar versão no cache para forçar atualização quando o modelo mudar
+# Usar timestamp para forçar atualização do cache
+import time
+CACHE_VERSION = f"v5-gemini-2.5-flash-{int(time.time())}"
+
 @st.cache_resource
-def get_llm_models(_cache_version="v4-gemini-2.5-flash"):
+def get_llm_models(_cache_version=CACHE_VERSION):
     """Carrega os modelos LLM com cache
     
     Args:
