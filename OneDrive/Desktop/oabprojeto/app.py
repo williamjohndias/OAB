@@ -375,12 +375,53 @@ def load_vectorstore():
     with st.spinner("Carregando PDF e criando índice... Isso pode levar alguns minutos na primeira vez."):
         # Carregar PDFs
         docs = []
-        workspace_path = Path(".")
-        for pdf_file in workspace_path.glob("*.pdf"):
+        
+        # Tentar múltiplos caminhos possíveis
+        possible_paths = [
+            Path("."),  # Diretório atual
+            Path(__file__).parent,  # Diretório do script
+            Path.cwd(),  # Diretório de trabalho atual
+        ]
+        
+        # Adicionar caminho específico do Streamlit Cloud se existir
+        if os.path.exists("/mount/src"):
+            possible_paths.append(Path("/mount/src"))
+        
+        pdf_files_found = []
+        for workspace_path in possible_paths:
+            try:
+                pdf_files = list(workspace_path.glob("*.pdf"))
+                if pdf_files:
+                    pdf_files_found.extend(pdf_files)
+            except Exception:
+                continue
+        
+        # Remover duplicatas mantendo a ordem
+        seen = set()
+        unique_pdfs = []
+        for pdf in pdf_files_found:
+            if str(pdf.resolve()) not in seen:
+                seen.add(str(pdf.resolve()))
+                unique_pdfs.append(pdf)
+        
+        if not unique_pdfs:
+            # Listar arquivos no diretório atual para debug
+            current_dir = Path(".")
+            all_files = list(current_dir.iterdir())
+            error_msg = f"Nenhum PDF foi encontrado no workspace.\n\n"
+            error_msg += f"Diretório atual: {current_dir.resolve()}\n"
+            error_msg += f"Arquivos encontrados: {[f.name for f in all_files[:10]]}\n"
+            if len(all_files) > 10:
+                error_msg += f"... e mais {len(all_files) - 10} arquivos\n"
+            raise ValueError(error_msg)
+        
+        # Carregar os PDFs encontrados
+        for pdf_file in unique_pdfs:
             try:
                 loader = PyMuPDFLoader(str(pdf_file))
-                docs.extend(loader.load())
-                st.success(f"✓ Carregado: {pdf_file.name}")
+                loaded_docs = loader.load()
+                docs.extend(loaded_docs)
+                st.success(f"✓ Carregado: {pdf_file.name} ({len(loaded_docs)} páginas)")
             except Exception as e:
                 st.error(f"✗ Erro ao carregar {pdf_file.name}: {e}")
         
