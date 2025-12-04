@@ -543,7 +543,7 @@ document_chain = create_rag_chain(llm_triagem, prompt_rag)
 def perguntar_vade_mecum(pergunta: str) -> Dict:
     """Função principal para consultar o Vade Mecum"""
     try:
-  docs_relacionados = retriever.invoke(pergunta)
+        docs_relacionados = retriever.invoke(pergunta)
     except Exception as e:
         return {
             "answer": f"Erro ao buscar informações: {str(e)}",
