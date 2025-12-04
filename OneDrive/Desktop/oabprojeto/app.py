@@ -385,7 +385,7 @@ def load_vectorstore():
     """Carrega o PDF e cria o índice vetorial com cache"""
     with st.spinner("Carregando PDF e criando índice... Isso pode levar alguns minutos na primeira vez."):
         # Carregar PDFs
-docs = []
+        docs = []
 
         # Tentar múltiplos caminhos possíveis
         possible_paths = [
